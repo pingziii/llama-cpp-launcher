@@ -1,0 +1,36 @@
+[package]
+name = "llama-cpp-launcher"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/pingziii/llama-cpp-launcher"
+description = "A TUI tool for launching and managing llama.cpp model servers"
+keywords = ["llama.cpp", "tui", "llm", "server-manager", "gguf"]
+categories = ["command-line-utilities", "development-tools::debugging"]
+readme = "README.md"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["std"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+serde_yaml = "0.9"
+ratatui = "0.29"
+crossterm = "0.28"
+reqwest = { version = "0.12", features = ["stream", "json"] }
+sysinfo = "0.33"
+nvml-wrapper = "0.10"
+dirs = "6"
+futures-util = "0.3"
+which = "6"
+
+[[bin]]
+name = "llama-cpp-launcher"
+path = "src/main.rs"
+
+[lib]
+name = "llm_launcher"
+path = "src/lib.rs"
