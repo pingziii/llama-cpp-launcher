@@ -19,6 +19,7 @@ use super::screens::{
 pub struct App {
     pub config: Config,
     pub hardware: Option<HardwareProfile>,
+    pub selected_model: Option<String>,
     pub launch_params: Option<LaunchParams>,
     pub launch_error: Option<String>,
     pub process: Option<LLamaProcess>,
@@ -39,6 +40,7 @@ impl App {
         Self {
             config,
             hardware: None,
+            selected_model: None,
             launch_params: None,
             launch_error: None,
             process: None,
@@ -228,16 +230,10 @@ impl App {
                                 current_screen = None;
                             }
                             crate::tui::screens::ScreenAction::SelectModel(path) => {
-                                let model_path = path.clone();
-                                let preset = self.config.last_preset.clone();
-                                let _ = crate::config::persist_last_selection(
-                                    &mut self.config,
-                                    &model_path,
-                                    preset.as_deref(),
-                                );
+                                self.selected_model = Some(path);
                                 self.launch_error = None;
                                 self.current_screen = AppScreen::Launch;
-                                current_screen = None; // recreate on next iteration
+                                current_screen = None;
                             }
                         }
                     }

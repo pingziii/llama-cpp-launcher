@@ -17,8 +17,6 @@ pub struct Config {
     pub model_dir: String,
     pub host: String,
     pub port: u16,
-    pub last_model: Option<String>,
-    pub last_preset: Option<String>,
     pub debug_logging: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub presets: Vec<Preset>,
@@ -34,8 +32,6 @@ impl Default for Config {
             model_dir: default_model_dir.to_string_lossy().to_string(),
             host: "127.0.0.1".to_string(),
             port: 8080,
-            last_model: None,
-            last_preset: None,
             debug_logging: false,
             presets: vec![
                 Preset {
@@ -147,15 +143,4 @@ pub fn remove_preset(config: &mut Config, name: &str) -> bool {
     let len = config.presets.len();
     config.presets.retain(|p| p.name != name);
     config.presets.len() < len
-}
-
-/// Persist the last model and preset to config and write to disk.
-pub fn persist_last_selection(
-    config: &mut Config,
-    model_path: &str,
-    preset_name: Option<&str>,
-) -> Result<()> {
-    config.last_model = Some(model_path.to_string());
-    config.last_preset = preset_name.map(|s| s.to_string());
-    save_config(config)
 }

@@ -35,9 +35,9 @@ impl ChatScreen {
                 )
             });
         let model_path = app
-            .config
-            .last_model
-            .clone()
+            .launch_params
+            .as_ref()
+            .map(|p| p.model_path.clone())
             .unwrap_or_else(|| "unknown".to_string());
 
         let log_buffer = app

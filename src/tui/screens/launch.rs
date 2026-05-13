@@ -195,8 +195,8 @@ impl LaunchScreen {
     pub fn new(app: &mut App) -> Self {
         let hw = app.hardware.clone().unwrap();
         let config = &app.config;
-        let model_path = config
-            .last_model
+        let model_path = app
+            .selected_model
             .clone()
             .unwrap_or_else(|| config.model_dir.clone());
 
@@ -211,16 +211,7 @@ impl LaunchScreen {
             };
 
         let presets = config.presets.clone();
-        let default_preset_idx = config
-            .last_preset
-            .as_deref()
-            .and_then(|last| config.presets.iter().position(|p| p.name == last))
-            .unwrap_or(0);
-        let preset_idx = if presets.is_empty() {
-            0
-        } else {
-            default_preset_idx.min(presets.len().saturating_sub(1))
-        };
+        let preset_idx = 0;
 
         let params = Self::compute_params(
             &hw,

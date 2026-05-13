@@ -175,19 +175,3 @@ fn test_default_model_dir_is_in_home() {
     );
 }
 
-#[test]
-fn test_persist_last_selection_updates_config() {
-    let mut config = Config::default();
-    assert!(config.last_model.is_none());
-    assert!(config.last_preset.is_none());
-
-    // This writes to real disk, so we check the in-memory update
-    let result = llm_launcher::config::persist_last_selection(
-        &mut config,
-        "/models/test.gguf",
-        Some("high-throughput"),
-    );
-    assert!(result.is_ok() || result.is_err());
-    assert_eq!(config.last_model, Some("/models/test.gguf".to_string()));
-    assert_eq!(config.last_preset, Some("high-throughput".to_string()));
-}
