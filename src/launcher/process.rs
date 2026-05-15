@@ -196,6 +196,18 @@ impl LLamaProcess {
         }
     }
 
+    /// Non-blocking check if the underlying process is still running.
+    pub fn is_running(&mut self) -> bool {
+        match self.child.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(_)) => false, // exited
+                Ok(None) => true,     // still running
+                Err(_) => false,      // error checking
+            },
+            None => false,
+        }
+    }
+
     /// Send SIGTERM and wait for graceful shutdown.
     pub async fn stop(&mut self) -> Result<()> {
         if let Some(mut child) = self.child.take() {

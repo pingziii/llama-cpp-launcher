@@ -17,11 +17,12 @@ pub struct ChatScreen {
     model_path: String,
     show_logs: bool,
     log_buffer: Arc<Mutex<Vec<String>>>,
-    log_scroll: usize, // lines scrolled up from bottom (0 = latest)
+    log_scroll: usize,
+    server_healthy: Arc<Mutex<Option<bool>>>,
 }
 
 impl ChatScreen {
-    pub fn new(app: &mut App) -> Self {
+    pub fn new(app: &mut App, server_healthy: Arc<Mutex<Option<bool>>>) -> Self {
         // Use the actual launch params (user-adjusted), fall back to config
         let (host, port, model_name) = app
             .launch_params
@@ -54,6 +55,7 @@ impl ChatScreen {
             show_logs: false,
             log_buffer,
             log_scroll: 0,
+            server_healthy,
         }
     }
 }
@@ -70,20 +72,22 @@ impl Screen for ChatScreen {
             ])
             .split(area);
 
-        // Title bar
-        let title = if self.show_logs {
-            Block::default()
-                .title(" Server Logs ")
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
+        // Determine health status for title bar
+        let health_status = *self.server_healthy.lock().unwrap();
+        let (title_text, title_color) = if self.show_logs {
+            (" Server Logs ", Color::Yellow)
         } else {
-            Block::default()
-                .title(" Model Server Running ")
-                .title_alignment(Alignment::Center)
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Green))
+            match health_status {
+                Some(true) => (" Model Server Running ● ", Color::Green),
+                Some(false) => (" Server Unresponsive ✕ ", Color::Red),
+                None => (" Model Server Running ", Color::Green),
+            }
         };
+        let title = Block::default()
+            .title(title_text)
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(title_color));
         f.render_widget(title, chunks[0]);
 
         if self.show_logs {
@@ -123,11 +127,18 @@ impl Screen for ChatScreen {
             let api_url = format!("http://{}:{}/v1/chat/completions", self.host, self.port);
             let health_url = format!("http://{}:{}/health", self.host, self.port);
 
-            let lines = vec![
+            let health_indicator = match health_status {
+                Some(true) => Span::styled(" ● Healthy ", Style::default().fg(Color::Green)),
+                Some(false) => Span::styled(" ✕ Unreachable ", Style::default().fg(Color::Red)),
+                None => Span::styled(" ? Checking... ", Style::default().fg(Color::Yellow)),
+            };
+
+            let mut lines = vec![
                 Line::from(Span::styled(
-                    " Server started successfully!",
-                    Style::default().add_modifier(Modifier::BOLD),
+                    " Server Status:",
+                    Style::default().fg(Color::Cyan),
                 )),
+                Line::from(health_indicator),
                 Line::from(""),
                 Line::from(Span::styled(
                     " Model Name:",
@@ -165,6 +176,17 @@ impl Screen for ChatScreen {
                 )),
             ];
 
+            // Show crash warning when server is unreachable
+            if health_status == Some(false) {
+                lines.push(Line::from(""));
+                lines.push(Line::from(Span::styled(
+                    " ⚠ Server has stopped responding. Press Esc to return to launch screen. ",
+                    Style::default()
+                        .fg(Color::Red)
+                        .add_modifier(Modifier::BOLD),
+                )));
+            }
+
             let text = Text::from(lines);
             let block = Block::default()
                 .borders(Borders::ALL)
@@ -177,7 +199,7 @@ impl Screen for ChatScreen {
         let footer_text = if self.show_logs {
             " ↑↓ scroll  |  'l': info view  |  's': stop server  |  'q': quit "
         } else {
-            " 'l': console logs | 's': stop server | 'q': quit "
+            " 'l': console logs | 's': stop server | 'q': quit | Esc: go back "
         };
         let footer = Paragraph::new(Line::from(Span::styled(
             footer_text,

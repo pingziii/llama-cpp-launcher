@@ -1,3 +1,4 @@
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
@@ -25,6 +26,10 @@ pub struct App {
     pub process: Option<LLamaProcess>,
     pub client: Option<LLamaClient>,
     pub current_screen: AppScreen,
+    /// Shared health status for ChatScreen: None=unknown, Some(true)=ok, Some(false)=dead
+    pub server_healthy: Arc<Mutex<Option<bool>>>,
+    health_check_counter: u32,
+    consecutive_failures: u32,
 }
 
 pub enum AppScreen {
@@ -46,6 +51,9 @@ impl App {
             process: None,
             client: None,
             current_screen: AppScreen::Hardware,
+            server_healthy: Arc::new(Mutex::new(None)),
+            health_check_counter: 0,
+            consecutive_failures: 0,
         }
     }
 
@@ -189,6 +197,10 @@ impl App {
                                                     };
                                                     self.client =
                                                         Some(LLamaClient::new(client_host, p.port));
+                                                    // Reset health monitoring state
+                                                    *self.server_healthy.lock().unwrap() = Some(true);
+                                                    self.consecutive_failures = 0;
+                                                    self.health_check_counter = 0;
                                                     self.current_screen = AppScreen::Chat;
                                                     current_screen = None;
                                                     break 'loading;
@@ -226,6 +238,9 @@ impl App {
                                 }
                                 self.client = None;
                                 self.launch_params = None;
+                                *self.server_healthy.lock().unwrap() = None;
+                                self.consecutive_failures = 0;
+                                self.health_check_counter = 0;
                                 self.current_screen = AppScreen::ModelSelect;
                                 current_screen = None;
                             }
@@ -239,6 +254,55 @@ impl App {
                     }
                 }
             }
+
+            // ── Periodic server health check (only on ChatScreen) ──
+            if matches!(self.current_screen, AppScreen::Chat) && self.client.is_some() {
+                self.health_check_counter += 1;
+                // Every ~3 seconds (30 × 100ms poll)
+                if self.health_check_counter >= 30 {
+                    self.health_check_counter = 0;
+
+                    // Check if process exited first
+                    let process_alive = self
+                        .process
+                        .as_mut()
+                        .map(|p| p.is_running())
+                        .unwrap_or(false);
+
+                    if !process_alive {
+                        info!("Detected llama.cpp process exited");
+                        *self.server_healthy.lock().unwrap() = Some(false);
+                        self.consecutive_failures += 1;
+                    } else if let Some(ref client) = self.client {
+                        let healthy = client.health_check().await.unwrap_or(false);
+                        let mut status = self.server_healthy.lock().unwrap();
+                        *status = Some(healthy);
+                        if healthy {
+                            self.consecutive_failures = 0;
+                        } else {
+                            self.consecutive_failures += 1;
+                        }
+                    }
+
+                    // After 5 consecutive failures (~15s), auto-navigate back to launch
+                    if self.consecutive_failures >= 5 {
+                        info!(
+                            failures = self.consecutive_failures,
+                            "Server unreachable, navigating back"
+                        );
+                        if let Some(mut proc) = self.process.take() {
+                            let _ = proc.stop().await;
+                        }
+                        self.client = None;
+                        self.launch_params = None;
+                        self.launch_error =
+                            Some("Server stopped responding after startup".to_string());
+                        self.current_screen = AppScreen::Launch;
+                        current_screen = None;
+                        self.consecutive_failures = 0;
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -249,7 +313,7 @@ impl App {
             AppScreen::Hardware => Box::new(HardwareScreen::new(self)),
             AppScreen::ModelSelect => Box::new(ModelSelectScreen::new(self)),
             AppScreen::Launch => Box::new(LaunchScreen::new(self)),
-            AppScreen::Chat => Box::new(ChatScreen::new(self)),
+            AppScreen::Chat => Box::new(ChatScreen::new(self, self.server_healthy.clone())),
             AppScreen::Config => Box::new(ConfigScreen::new(self)),
         }
     }
