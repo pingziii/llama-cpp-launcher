@@ -47,7 +47,7 @@ fn scan_gguf_files(dir: &Path) -> Vec<ModelEntry> {
                 .to_string();
 
             // Skip mmproj files (vision projection models, not standalone LLMs)
-            if file_name.to_lowercase().starts_with("mmproj-") {
+            if file_name.to_lowercase().contains("mmproj") {
                 continue;
             }
 

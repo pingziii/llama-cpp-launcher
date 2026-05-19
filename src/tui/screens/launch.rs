@@ -225,6 +225,12 @@ impl LaunchScreen {
 
         let adjustable_params = build_adjustable_params(&params);
 
+        // Auto-detect paired mmproj file in same directory
+        let mut params = params;
+        if params.mmproj_path.is_none() {
+            params.mmproj_path = find_mmproj_file(&model_path);
+        }
+
         Self {
             hw,
             model_path,
@@ -530,6 +536,24 @@ fn shell_escape(s: &str) -> String {
     } else {
         s.to_string()
     }
+}
+
+/// Scan the same directory as the model for a paired mmproj file.
+fn find_mmproj_file(model_path: &str) -> Option<String> {
+    let path = Path::new(model_path);
+    let dir = path.parent()?;
+    let model_stem = path.file_stem()?.to_str()?;
+
+    for entry in std::fs::read_dir(dir).ok()? {
+        let p = entry.ok()?.path();
+        if p.extension().map(|e| e == "gguf").unwrap_or(false) {
+            let name = p.file_stem()?.to_str()?;
+            if name.to_lowercase().contains("mmproj") && name != model_stem {
+                return Some(p.to_string_lossy().to_string());
+            }
+        }
+    }
+    None
 }
 
 impl Screen for LaunchScreen {

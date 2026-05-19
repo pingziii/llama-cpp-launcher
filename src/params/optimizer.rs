@@ -22,6 +22,7 @@ pub struct LaunchParams {
     pub port: u16,
     pub model_path: String,
     pub model_name: String,
+    pub mmproj_path: Option<String>,
 }
 
 /// Derive a display-friendly model name from a file path.
@@ -98,6 +99,7 @@ pub fn calculate_optimal_params(
         port,
         model_path: model_path.to_string(),
         model_name: model_name_from_path(model_path),
+        mmproj_path: None,
     }
 }
 
@@ -149,6 +151,7 @@ pub fn calculate_params(
         port,
         model_path: model_path.to_string(),
         model_name: model_name_from_path(model_path),
+        mmproj_path: None,
     }
 }
 

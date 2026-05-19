@@ -99,5 +99,10 @@ pub fn build_server_args(params: &LaunchParams) -> Vec<String> {
         args.push("--jinja".to_string());
     }
 
+    if let Some(mmproj) = &params.mmproj_path {
+        args.push("--mmproj".to_string());
+        args.push(mmproj.clone());
+    }
+
     args
 }

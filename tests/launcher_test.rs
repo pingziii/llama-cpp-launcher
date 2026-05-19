@@ -19,6 +19,7 @@ fn make_params() -> LaunchParams {
         port: 8080,
         model_path: "/models/test.gguf".to_string(),
         model_name: "test".to_string(),
+        mmproj_path: None,
     }
 }
 
